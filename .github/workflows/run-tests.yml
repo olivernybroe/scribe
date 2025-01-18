@@ -19,7 +19,6 @@ jobs:
         - highest
         include:
           - {php: '8.1', deps: lowest}
-          - {php: '8.1', deps: dingo}
 
     name: Tests (PHP ${{ matrix.php }} - ${{ matrix.deps }})
 
@@ -36,23 +35,15 @@ jobs:
         if: ${{ matrix.deps == 'highest' }}
         run: composer update
 
-      - name: Install dependencies (Dingo)
-        if: ${{ matrix.deps == 'dingo' }}
-        run: COMPOSER=composer.dingo.json composer update --prefer-stable
-
       - name: Install dependencies (lowest)
         if: ${{ matrix.deps == 'lowest' }}
         run: COMPOSER=composer.lowest.json composer update --prefer-stable
 
 
-      - name: Execute tests (Laravel/Lumen)
+      - name: Execute tests (Laravel)
         run: composer test-ci
         if: ${{ matrix.deps == 'highest' }}
 
       - name: Execute tests (Lowest)
         run: COMPOSER=composer.lowest.json composer test-ci
         if: ${{ matrix.deps == 'lowest' }}
-
-      - name: Execute tests (Dingo)
-        run: COMPOSER=composer.dingo.json composer test-ci
-        if: ${{ matrix.deps == 'dingo' }}
