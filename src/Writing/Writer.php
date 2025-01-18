@@ -3,6 +3,7 @@
 namespace Knuckles\Scribe\Writing;
 
 use Illuminate\Support\Facades\Storage;
+use Knuckles\Camel\Output\OutputEndpointData;
 use Knuckles\Scribe\Tools\ConsoleOutputUtils as c;
 use Knuckles\Scribe\Tools\DocumentationConfig;
 use Knuckles\Scribe\Tools\Globals;
@@ -46,9 +47,9 @@ class Writer
     }
 
     /**
-     * @param array[] $groupedEndpoints
+     * @param array<string,array> $groupedEndpoints
      */
-    public function writeDocs(array $groupedEndpoints)
+    public function writeDocs(array $groupedEndpoints): void
     {
         // The static assets (js/, css/, and images/) always go in public/docs/.
         // For 'static' docs, the output files (index.html, collection.json) go in public/docs/.
@@ -177,6 +178,9 @@ class Writer
         file_put_contents("$this->laravelTypeOutputPath/index.blade.php", $contents);
     }
 
+    /**
+     * @param array[] $groupedEndpoints
+     */
     public function writeHtmlDocs(array $groupedEndpoints): void
     {
         c::info('Writing ' . ($this->isStatic ? 'HTML' : 'Blade') . ' docs...');
