@@ -31,7 +31,7 @@ class OpenAPISpecWriter
      */
     private Collection $generators;
 
-    public function __construct(DocumentationConfig $config = null)
+    public function __construct(?DocumentationConfig $config = null)
     {
         $this->config = $config ?: new DocumentationConfig(config('scribe', []));
         $this->generators = collect([
