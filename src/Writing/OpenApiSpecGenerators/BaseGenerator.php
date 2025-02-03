@@ -160,7 +160,7 @@ class BaseGenerator extends OpenApiGenerator
         return $parameters;
     }
 
-    protected function generateEndpointRequestBodySpec(OutputEndpointData $endpoint)
+    protected function generateEndpointRequestBodySpec(OutputEndpointData $endpoint): array|\stdClass
     {
         $body = [];
 
@@ -368,9 +368,9 @@ class BaseGenerator extends OpenApiGenerator
 
             case 'object':
                 $properties = collect($decoded)->mapWithKeys(function ($value, $key) use ($endpoint) {
-                    return [$key => $this->generateSchemaForValue($value, $endpoint, $key)];
+                    return [$key => $this->generateSchemaForResponseValue($value, $endpoint, $key)];
                 })->toArray();
-                $required = $this->filterRequiredFields($endpoint, array_keys($properties));
+                $required = $this->filterRequiredResponseFields($endpoint, array_keys($properties));
 
                 $data = [
                     'application/json' => [
@@ -467,7 +467,7 @@ class BaseGenerator extends OpenApiGenerator
 
             return $fieldData;
         } else if ($field->type === 'object') {
-            return [
+            $data = [
                 'type' => 'object',
                 'description' => $field->description ?: '',
                 'example' => $field->example,
@@ -475,7 +475,13 @@ class BaseGenerator extends OpenApiGenerator
                 'properties' => $this->objectIfEmpty(collect($field->__fields)->mapWithKeys(function ($subfield, $subfieldName) {
                     return [$subfieldName => $this->generateFieldData($subfield)];
                 })->all()),
+                'required' => collect($field->__fields)->filter(fn ($f) => $f['required'])->keys()->toArray(),
             ];
+            // The spec doesn't allow for an empty `required` array. Must have something there.
+            if (empty($data['required'])) {
+                unset($data['required']);
+            }
+            return $data;
         } else {
             $schema = [
                 'type' => static::normalizeTypeName($field->type),
@@ -497,7 +503,7 @@ class BaseGenerator extends OpenApiGenerator
      * object)}, and possibly a description for each property. The $endpoint and $path are used for looking up response
      * field descriptions.
      */
-    public function generateSchemaForValue(mixed $value, OutputEndpointData $endpoint, string $path): array
+    public function generateSchemaForResponseValue(mixed $value, OutputEndpointData $endpoint, string $path): array
     {
         if ($value instanceof \stdClass) {
             $value = (array)$value;
@@ -505,9 +511,9 @@ class BaseGenerator extends OpenApiGenerator
             // Recurse into the object
             foreach ($value as $subField => $subValue) {
                 $subFieldPath = sprintf('%s.%s', $path, $subField);
-                $properties[$subField] = $this->generateSchemaForValue($subValue, $endpoint, $subFieldPath);
+                $properties[$subField] = $this->generateSchemaForResponseValue($subValue, $endpoint, $subFieldPath);
             }
-            $required = $this->filterRequiredFields($endpoint, array_keys($properties), $path);
+            $required = $this->filterRequiredResponseFields($endpoint, array_keys($properties), $path);
 
             $schema = [
                 'type' => 'object',
@@ -541,11 +547,11 @@ class BaseGenerator extends OpenApiGenerator
 
             if ($typeOfEachItem === 'object') {
                 $schema['items']['properties'] = collect($sample)->mapWithKeys(function ($v, $k) use ($endpoint, $path) {
-                    return [$k => $this->generateSchemaForValue($v, $endpoint, "$path.$k")];
+                    return [$k => $this->generateSchemaForResponseValue($v, $endpoint, "$path.$k")];
                 })->toArray();
             }
 
-            $required = $this->filterRequiredFields($endpoint, array_keys($schema['items']['properties']), $path);
+            $required = $this->filterRequiredResponseFields($endpoint, array_keys($schema['items']['properties']), $path);
             if ($required) {
                 $schema['required'] = $required;
             }
@@ -558,7 +564,7 @@ class BaseGenerator extends OpenApiGenerator
     /**
      * Given an enpoint and a set of object keys at a path, return the properties that are specified as required.
      */
-    public function filterRequiredFields(OutputEndpointData $endpoint, array $properties, string $path = ''): array
+    public function filterRequiredResponseFields(OutputEndpointData $endpoint, array $properties, string $path = ''): array
     {
         $required = [];
         foreach ($properties as $property) {
